@@ -1,0 +1,644 @@
+---
+title: "Merging Data"
+author: "Danielle Contreras"
+date: '2022-06-01'
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+install.packages("tidyverse")
+library(tidyverse)
+library(broom)
+library(readxl)
+install.packages("dplyr")
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(reshape2)
+library(Hmisc)
+library(gt)
+library(lme4)
+library(MuMIn)
+library(glmnet)
+library(xlsx) 
+library(readxl)
+library(Hmisc)
+library(plyr)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 4, fig.height = 4, tidy = TRUE)
+```
+
+
+```{r}
+Entered_Data <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx") # read data into R
+excel_sheets("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx") # Look at list of different sheets/tabs
+Plant_Key_Codes <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Plant Key Codes") # assign the Plant Key Codes tab into a sheet
+Truck_Arrival_Unloading <-  read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Truck Arrival & Unloading") # assign the Truck Arrival & Unloading into a sheet
+
+
+#Truck_Arrival_Unloading$`Arrival to Unload Time` <-hms(Truck_Arrival_Unloading$`Arrival to Unload Time`)
+
+
+Truck_Arrival_Unloading$`Arrival to Unload Time` <-as.numeric(Truck_Arrival_Unloading$`Arrival to Unload Time`)  # treat time as numeric for arrival to unload
+Truck_Arrival_Unloading$Arrival_to_Unload_Time <- 60*24*Truck_Arrival_Unloading$`Arrival to Unload Time` # mutate the times to minutes 
+
+Truck_Arrival_Unloading$`Trip Time to Plant`<- as.numeric(Truck_Arrival_Unloading$`Trip Time to Plant`)  # treat time as numeric for trip time to plant 
+Truck_Arrival_Unloading$Trip_Time_to_Plant <- 60*24*Truck_Arrival_Unloading$`Trip Time to Plant` #mutate the times to minutes 
+
+Yard_Shack <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx",
+                         sheet = "Yard Shack",
+                         col_types = c("guess","guess","date","date", rep("guess",7)))
+## assign yard shack to sheet, with col types changed for dates.
+
+
+
+
+Truck_Weights <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Truck Weights") # Assign the truck weights tab into a sheet
+Meat_Quality <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Meat Quality") # Assign the meat quality tab into a sheet
+Mobility <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Mobility") # Assign the Mobility tab into a sheet 
+Bruising <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Bruising") # Assign the bruising tab into  a sheet
+Weather <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Weather",
+                       col_types = c("guess","guess","date","date",rep("guess",11))) # Assign the Weather tab into a sheet
+Weather$Temp <- as.numeric(Weather$Temp)# Make weather numeric
+Weather$Humidity <- as.numeric(Weather$Humidity) # Make Humidity numeric
+Pen_Density_Key <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Pen Density Key") # Assign the Pen Density Key Tab into a sheet
+Pen_Density <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Pen Density") # Assign the Pen Density tab into a sheet
+Time_Spent_in_Pens <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Time Spent in Pens") # Assign time spent in pens into a sheet
+```
+
+
+
+
+```{r}
+## Truck Arrival and Unloading
+Arrival_unload_dist <- Truck_Arrival_Unloading %>% ##start to pipe data. Start Truck Arrival and Unloading
+  group_by(`Lot #`, `Arrival Date`,`Plant`, `Company`) %>% ## Grouping our data by these 4 variables
+  summarise(across(Arrival_to_Unload_Time,.fns = mean, na.rm = TRUE), .groups = "drop" ## summarizing across Arrival to Unload time
+)
+sum1 <- Arrival_unload_dist$Arrival_to_Unload_Time
+sum(is.na(sum1))
+
+
+
+time_to_plant_dist <- Truck_Arrival_Unloading %>% ##start to pipe data. Start Truck Arrival and Unloading
+  group_by(`Lot #`, `Arrival Date`, `Plant`, Company) %>%## Grouping our data by these 4 variables
+  summarise(
+    across(Trip_Time_to_Plant, .fns = mean, na.rm = TRUE), .groups = "drop" ## summarizing across Trip time to plant
+  )
+
+sum1 <- time_to_plant_dist$Trip_Time_to_Plant
+sum(is.na(sum1))
+sum2 <- merge_final$Trip_Time_to_Plant
+sum(is.na(sum2))
+
+Truck_Arrival_Unloading$`Total Time on Truck` <- as.numeric(Truck_Arrival_Unloading$`Total Time on Truck`) ## assign the times on truck as numeric
+Truck_Arrival_Unloading$Total_Time_on_Truck <- 60*24*Truck_Arrival_Unloading$`Total Time on Truck` # turn the decimal into minutes
+
+
+
+Total_time_on_truck_dist <- Truck_Arrival_Unloading %>%##start to pipe data. Start Truck Arrival and Unloading
+  group_by(`Lot #`, `Arrival Date`, `Plant`, Company ) %>%## Grouping our data by these 4 variables
+  summarise(across(Total_Time_on_Truck, .fns = mean, na.rm = TRUE), .groups = "drop" ## summarizing across Time on truck
+  )
+
+```
+
+
+```{r}
+## Truck Weights 
+
+Truck_Weights$`Truck Weight` <- as.numeric(Truck_Weights$`Truck Weight`) # Assign Truck Weight as numeric not character
+Truck_Weights$Truck_Weights10000 <- 10000*Truck_Weights$`Truck Weight`
+Truck_weight_dist_mean <- Truck_Weights %>%#start to pipe data. Start from Truck_weights
+  group_by(`Lot #`, `Arrival Date`, `Plant`, `Company`) %>%# Grouping our data by these 3 variables
+  summarise(across(Truck_Weights10000, .fns = mean, na.rm = TRUE), .groups = "drop" # Look at Truck weight  stats
+            )
+
+#Truck_weight_avglot <- Truck_weight_dist_mean$`Truck Weight`  ## assign the truck weigh
+
+
+
+```
+
+
+```{r}
+## Meat quality 
+
+Avg_hot_weight_dist <- Meat_Quality%>%#start to pipe data. Start from Meat Quality
+   group_by(`Lot #`, `Arrival Date`, `Kill Date`,`Plant`, Company) %>%# Grouping our data by these 3 variables
+   summarise(across(`Avg. Hot Wt.`, na.rm = TRUE), .groups = "drop" # Look at hot weigght
+            )
+
+
+Meat_Quality$`Dress Yield` <- as.numeric(Meat_Quality$`Dress Yield`) ## treat yeild as numeric instead of character 
+yield_dist <- Meat_Quality%>%#start to pipe data. Start from Meat Quality
+   group_by(`Lot #`, `Arrival Date`, `Kill Date`, `Plant`, Company) %>%# Grouping our data by these 4 variables
+   summarise(across(`Dress Yield`, na.rm = TRUE), .groups = "drop" 
+    )
+
+Meat_Quality$`Avg. Live Wt.` <- as.numeric(Meat_Quality$`Avg. Live Wt.`) ## Treat live weight as numeric not character
+Avg_live_weight_dist <- Meat_Quality%>%#start to pipe data. Start from Meat Quality
+   group_by(`Lot #`, `Arrival Date`, `Kill Date`,`Plant`, Company) %>%# Grouping our data by these 4 variables
+   summarise(across(`Avg. Live Wt.`, na.rm = TRUE), .groups = "drop" # Look at live weight
+            )
+
+
+
+
+
+```
+
+```{r}
+##Split Kill
+Mobility$`Split Kill` <- as.numeric(Mobility$`Split Kill`)
+split_kill_dist <- Mobility%>%#start to pipe data. Start from Mobility
+   group_by(`Lot #`, `Kill Date`, `Plant`, `Company`) %>%# Grouping our data by these 3 variables
+   summarise(across(`Split Kill`, na.rm = TRUE, .fns=mean),  .groups = "drop" # Look at split kill
+    )
+
+
+
+
+ 
+
+Mobility$`#1s` <- as.numeric(Mobility$`#1s`) # treat #1s as numeric
+onesmob_dist <- Mobility%>%#start to pipe data. Start from Mobility
+   group_by(`Lot #`, `Kill Date`, `Plant`, `Company`) %>%# Grouping our data by these 4 variables
+   summarise(across(`#1s`, na.rm = TRUE, .fns = sum),  .groups = "drop" # Look at the total number of normal (without limp)
+    )
+
+Mobility$`#2s` <- as.numeric(Mobility$`#2s`)
+twosmob_dist <- Mobility%>%#start to pipe data. Start from Mobility
+   group_by(`Lot #`, `Kill Date`, `Plant`, `Company`) %>%# Grouping our data by these 4 variables
+   summarise(across(`#2s`, na.rm = TRUE, .fns = sum),  .groups = "drop" # Look at the total number of slight limp
+    )
+
+
+Mobility$`#3s` <- as.numeric(Mobility$`#3s`)
+threesmob_dist <- Mobility%>%#start to pipe data. Start from Mobility
+   group_by(`Lot #`, `Kill Date`, `Plant`, `Company`) %>%# Grouping our data by these 4 variables
+   summarise(across(`#3s`, na.rm = TRUE, .fns = sum),  .groups = "drop" # Look at the total number of limp
+    )
+
+
+Mobility$`#4s` <- as.numeric(Mobility$`#4s`)
+foursmob_dist <- Mobility%>%#start to pipe data. Start from Mobility
+   group_by(`Lot #`, `Kill Date`, `Plant`, `Company`) %>%# Grouping our data by these 4 variables
+   summarise(across(`#4s`, na.rm = TRUE, .fns = sum),  .groups = "drop" # Look at the total number of slight limp
+    )
+DD_dist <- Mobility%>%
+  group_by(`Lot #`, `Kill Date`, `Plant`, `Company`)%>%
+  dplyr::summarise(across(`D/D`, na.rm = TRUE, .fns = sum), .groups = "drop" 
+    )
+DD_dist
+
+breed_dist <- Mobility%>%#start to pipe data. Start from Mobility
+   group_by(`Lot #`, `Kill Date`, `Plant`, `Company`) %>%# Grouping our data by these 4 variables
+   summarise(across(Breed, na.rm = TRUE),  .groups = "drop" # Look at the total number of slight limp
+    )
+breed_dist
+
+
+```
+
+```{r}
+bruise_dist_meanslot <- Bruising%>%#start to pipe data. Start from Bruising
+   group_by(`Lot #`, `Kill Date`,`Plant`, `Company`) %>%# Grouping our data by these 4 variables
+   summarise(across(None,.fns = sum, na.rm = TRUE), .groups = "drop" # Look at if animal bruised or not
+   )
+
+```
+
+```{r}
+## Temperautre and Humidity
+Temp_dist <- Weather%>%#start to pipe data. Start from Weather
+   group_by(`Lot #`, `Arrival Date`, `Kill Date`, `Time Point`, Company, Plant) %>%# Grouping our data by these 4 variables
+   summarise(across(Temp,.fns = mean, na.rm = TRUE), .groups = "drop" # Look at temperature
+   )
+Temp_dist$`Lot #` <- as.character(Temp_dist$`Lot #`)
+
+arrivalt <- Temp_dist %>% ## start piping the arrival temps
+  filter(`Time Point` == "Arrival") # filter arrial temps
+names(arrivalt)[names(arrivalt) == 'Temp'] <- 'Arrival_Temp' # change name of column
+arrivalt2 <- arrivalt%>% select(`Lot #`, `Kill Date`,`Arrival Date`,Company,Plant,Arrival_Temp) # select certain columns for our data frame to make next
+
+
+
+mobilityt <- Temp_dist %>% ## start piping the mobility temps
+  filter(`Time Point` == "Mobility")# filter mobility temps
+names(mobilityt)[names(mobilityt) == 'Temp'] <- 'Mobility_Temp'# change name of column
+mobilityt2 <- mobilityt %>% select( `Lot #`, `Kill Date`,`Arrival Date`,Company,Plant, Mobility_Temp)# select certain columns for our data frame to make next
+
+
+unloadingt <- Temp_dist %>% ## start piping the unloading temps
+  filter(`Time Point` == "Unloading")# filter unloading temps
+names(unloadingt)[names(unloadingt) == 'Temp'] <- 'Unloading_Temp'# change name of column
+unloadingt2 <- unloadingt %>% select(`Lot #`, `Kill Date`, `Arrival Date`,Company,Plant,Unloading_Temp)# select certain columns for our data frame to make next
+
+
+
+
+humid_dist <- Weather%>%#start to pipe data. Start from Weather
+   group_by(`Lot #`, `Arrival Date`, `Kill Date`, `Time Point`, Company, Plant) %>%# Grouping our data by these 4 variables
+   summarise(across(Humidity,.fns = mean, na.rm = TRUE), .groups = "drop" # Look at humidity
+   )
+humid_dist$`Lot #` <- as.character(humid_dist$`Lot #`)
+arrivalh <- humid_dist %>% ## start piping the unloading temps
+  filter(`Time Point` == "Arrival")# filter unloading temps
+names(arrivalh)[names(arrivalh) == 'Humidity'] <- 'Arrival_Humidity'# change name of column
+arrivalh2 <- arrivalh %>% select(`Lot #`, `Kill Date`,`Arrival Date`,Company,Plant, Arrival_Humidity)# select certain columns for our data frame to make next
+
+
+
+mobilityh <- humid_dist %>% ## start piping the unloading temps
+  filter(`Time Point` == "Mobility")# filter unloading temps
+names(mobilityh)[names(mobilityh) == 'Humidity'] <- 'Mobility_Humidity'# change name of column
+mobilityh2 <- mobilityh %>% select(`Lot #`, `Kill Date`,`Arrival Date`,Company,Plant, Mobility_Humidity)# select certain columns for our data frame to make next
+
+
+unloadingh <- humid_dist %>% ## start piping the unloading temps
+  filter(`Time Point` == "Unloading")# filter unloading temps
+names(unloadingh)[names(unloadingh) == 'Humidity'] <- 'Unloading_Humidity'# change name of column
+unloadingh2 <- unloadingh %>% select(`Lot #`, `Kill Date`,`Arrival Date`,Company,Plant, Unloading_Humidity)# select certain columns for our data frame to make next
+
+
+```
+
+
+```{r}
+## Pen Density
+
+Pen_Density$`Total sq footage` <- as.numeric(Pen_Density$`Total sq footage`) ## Assign Pen density sq. Ft. as Numeric
+density_dist<- Pen_Density%>%#start to pipe data. Start from Pen Density
+   group_by(`Lot #`, `Arrival Date`, `Kill Date`, Company, Plant) %>%# Grouping our data by these 3 variables
+   summarise(across(`Total sq footage`,.fns = sum, na.rm = TRUE), .groups = "drop" # Look at pen density
+   )
+Pen_Density$`Stocking Density (ft.² per head)` <- as.numeric(Pen_Density$`Stocking Density (ft.² per head)`)
+pd_dist <- Pen_Density%>%#start to pipe data. Start from Pen Density
+   group_by(`Lot #`, `Arrival Date`, `Kill Date`, Company, Plant) %>%# Grouping our data by these 3 variables
+   summarise(across(`Stocking Density (ft.² per head)`,.fns = mean, na.rm = TRUE), .groups = "drop" # Look at pen density
+   ) 
+
+
+```
+
+```{r}
+## Lairage Time
+
+Time_Spent_in_Pens$`Total Time Spent in Pens` <- as.numeric(Time_Spent_in_Pens$`Total Time Spent in Pens`) ## Make total time in pens numeric
+Time_Spent_in_Pens$Total_Time_Spent_in_Pens <- 24*60*Time_Spent_in_Pens$`Total Time Spent in Pens` # Turn time into minutes
+time_in_pens_dist<- Time_Spent_in_Pens%>%#start to pipe data. Start from Time spent in pens
+   group_by(`Lot #`, `Arrival Date`, `Kill Date`, Company, Plant) %>%# Grouping our data by these 5 variables
+   summarise(across(Total_Time_Spent_in_Pens, na.rm = TRUE), .groups = "drop" # Look at time spent in pens
+   )
+
+```
+
+```{r}
+## Sex
+Yard_Shack <- Yard_Shack %>%
+   mutate(Sex = str_to_lower(Sex)) %>%
+   mutate(Sex = fct_collapse(Sex,
+   Steer = c("steers","S","ST","Steers","male","Male","s","st","steer"),
+   Heifer = c("heifers","heifer","HF","Heifers", "hf"),
+   Mix = c("mix","Mix","MIX"))) ## mutate the values for sex so that they match based on sex
+Sex_dist <- Yard_Shack %>%#start to pipe data. Start from Yard SHack
+  group_by(`Lot #`, `Arrival Date`,`Kill Date`,Plant,Company ) %>%# Grouping our data by these 5 variables
+  summarise(across(Sex, na.rm = TRUE), .groups = "drop"
+    )# Pulling the sex out so we can do statistics from what we already grouped by
+
+
+
+```
+
+
+```{r}
+## Shift 
+
+Yard_Shack <- Yard_Shack %>% #
+   mutate(`Kill Shift` = str_to_lower(`Kill Shift`)) %>%
+   mutate(`Kill Shift` = fct_collapse(`Kill Shift`,
+   A = c("A", "a",'"A,','a'),
+   B = c("B", 'B"', "b", 'b')))  ## mutate the values of kill shift so that they match for A and B
+
+
+Kill_Shift_Dist <- Yard_Shack %>%#start to pipe data. Start from Yard SHack
+  group_by(`Lot #`, `Arrival Date`, `Kill Date`, Plant, Company) %>%# Grouping our data by these 3 variables
+  summarise(across(`Kill Shift`, na.rm = TRUE), .groups="drop"
+    )# Pulling the kill shift so we can do statistics from what we already grouped by
+head_dist <- Yard_Shack %>% ## start to pipe data for head count
+  group_by(`Lot #`, `Arrival Date`, `Kill Date`, Plant, Company) %>% ## group by these 5 variables
+  summarise(across(`Total # Head`, na.rm=TRUE), .groups="drop"
+  ) ## summarise for total number of cattle.   
+
+```
+
+```{r}
+## Plant
+Plant_dist <- Yard_Shack %>% #start to pipe data. Start from Yard SHack
+  group_by(`Lot #`, `Arrival Date`,`Kill Date`, Company) %>% # Grouping our data by these 3 variables
+  summarise(across(Plant, na.rm = TRUE),.groups = "drop")# Pulling Producer so we can do statistics from what we already grouped by
+sum1 <- Plant_dist$Plant
+sum(is.na(sum1))
+sum2 <- merge_final$Plant
+sum(is.na(sum2))
+```
+
+
+
+```{r}
+## Start of Merging
+## Truck Arrival and Unloading
+
+truck_arrival1_merge <- left_join(time_to_plant_dist, Arrival_unload_dist,all.x=TRUE,all.y=FALSE, by= c("Lot #","Arrival Date","Company", "Plant"), na.rm=TRUE)# join times to plant and arrival to unload time
+
+truck_arrival2_merge <- left_join(truck_arrival1_merge,Total_time_on_truck_dist,all.x=TRUE,all.y=FALSE,by= c("Lot #","Arrival Date","Company", "Plant"), na.rm=TRUE) ## join time on truck and new merge together
+
+
+
+merge3_timeinpen <- left_join(truck_arrival2_merge,time_in_pens_dist,all.x=TRUE,all.y=FALSE,by= c("Lot #","Arrival Date","Company", "Plant"),na.rm=TRUE) # merge the 2nd merge and time in pen
+
+
+
+merge4_pendensity <- left_join(merge3_timeinpen, density_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge together the 3rd merged data and pen density 
+ # make arrival temp as a character
+merge4_pendensity
+  
+merge5_arrtemp <- left_join(merge4_pendensity, arrivalt2,all.x=TRUE,all.y=FALSE,na.rm=TRUE) # merge old table with new arrival temps
+
+merge6_mobtemp <- left_join(merge5_arrtemp, mobilityt2,all.x=TRUE,all.y=FALSE, na.rm=TRUE)# merge old table with new mobility temps
+merge6_mobtemp
+
+merge7_unlotemp <- left_join(merge6_mobtemp, unloadingt2,all.x=TRUE,all.y=FALSE, na.rm=TRUE)# merge old table with new unloading temps
+
+
+merge8_arrh <- left_join(merge7_unlotemp, arrivalh2,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge old table with new arrival humidity percentages
+
+
+merge9_mobh <- left_join(merge8_arrh, mobilityh2,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge old table with mobility humidity
+
+
+
+merge10_unlh <- left_join(merge9_mobh, unloadingh2,all.x=TRUE,all.y=FALSE, na.rm=TRUE) ## merge old and unloading humidity
+
+
+merge11_hotweight <- left_join(merge10_unlh, Avg_hot_weight_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge old and hot weight
+
+merge12_split <- left_join(merge11_hotweight, split_kill_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge old and split kill
+merge13_yield <- left_join(merge12_split, yield_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) ## merge old and yield
+merge14_nolimp <- left_join(merge13_yield, onesmob_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) ## merge old and animals with no limp
+merge15_slimp <- left_join(merge14_nolimp, twosmob_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) ## merge old and animals with slight limp
+merge16_limp <- left_join(merge15_slimp, threesmob_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE)## merge old and animals with limp
+merge17_nomove <- left_join(merge16_limp, foursmob_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge old and animals that dont move at all
+merge18_liveweight <- left_join(merge17_nomove, Avg_live_weight_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge old and live weight.
+merge19_kill <- left_join(merge18_liveweight, Kill_Shift_Dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE)# merge old and kill shift
+
+merge20_sex <- left_join(merge19_kill, Sex_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge old and sex
+merge20_sex$Company <- as.character(merge20_sex$Company) # treat Company as character so all company classes match for merging
+head_dist$Company <- as.character(head_dist$Company) # treat Company as character so all company classes match for merging
+merge21_head <-  left_join(merge20_sex, head_dist,all.x=TRUE,all.y=FALSE, na.rm=TRUE) # merge old table with new for count of cattle
+
+merge_final <- rename(merge21_head, "Lot" = `Lot #`,"Total_sq_footage" = `Total sq footage`,"Hot_Weight" = `Avg. Hot Wt.`,"Splitkill" = `Split Kill`,"Yield" = `Dress Yield`,"No_Limp" = `#1s`,"Slight_Limp" = `#2s`,"Limp" = `#3s`,"No_movement" = `#4s`,"Live_Weight" = `Avg. Live Wt.`, "Arrival_Date" = `Arrival Date`, "Kill_Date" = `Kill Date`, "Lariage_Time" = Total_Time_Spent_in_Pens, "Head_Count" = `Total # Head`) ## rename the columns in the final merge data set
+
+merge_finaldf <- as.data.frame(merge_final) ## treat as a data frame 
+merge_finaldf <- merge_finaldf %>% # assin data to a new name
+  filter(complete.cases(.)) # filter only complete rows 
+merge_finaldf
+
+merge19df <- as.data.frame(merge19) ## treat as a data frame
+merge19df <- merge19df %>% # assin data to a new name
+  filter(complete.cases(.))# filter only complete rows
+merge19df
+
+
+
+```
+
+
+```{r}
+time_in_pens_dist$Company <- as.character(time_in_pens_dist$Company) # treat company as character so all company classes  match for merging
+pd_dist$Company <- as.character(pd_dist$Company)# treat company as character so all company classes  match for merging
+merge0 <- left_join(time_in_pens_dist, pd_dist, all.x=TRUE,all.y=FALSE, by = c("Lot #","Arrival Date","Kill Date","Company", "Plant"))# merge together time in pens and pen density distribution
+merge1 <- left_join(merge0, arrivalt2, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) # merge old and arrival temp
+merge2 <- left_join(merge1,mobilityt2, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant"))## merge old and mobility temp
+merge3 <- left_join(merge2,unloadingt2, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) ## merge old and unloading temp
+merge4 <- left_join(merge3,arrivalh2, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) ## merge old and arrival humidity
+merge5 <- left_join(merge4,mobilityh2, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant"))##merge old and mobility humidity
+merge6 <- left_join(merge5,unloadingh2, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) # merge old and unloading humidity
+Meat_Quality$Company <- as.character(Meat_Quality$Company) # treat company as character so the company classes match for merging
+Avg_hot_weight_dist$Company <- as.character(Avg_hot_weight_dist$Company)# treat company as character so the company classes match for merging
+merge7 <- left_join(merge6,Avg_hot_weight_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) # merge old and hot weight
+yield_dist$Company <- as.character(yield_dist$Company) # treat company as character so the company classes match for merging
+merge8 <- left_join(merge7,yield_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) # merge old and yield together
+Avg_live_weight_dist$Company <- as.character(Avg_live_weight_dist$Company) # treat company as character so the company classes match for merging
+merge9 <- left_join(merge8,Avg_live_weight_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) ## merge together avg live weight and old
+Sex_dist$Company <- as.character(Sex_dist$Company)# treat company as character so the company classes match for merging
+merge10 <- left_join(merge9,Sex_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) # merge old and Sex 
+Kill_Shift_Dist$Company <- as.character(Kill_Shift_Dist$Company)# treat company as character so the company classes match for merging
+merge11 <- left_join(merge10,Kill_Shift_Dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Kill Date","Company", "Plant")) # merge old and kill shift 
+Arrival_unload_dist$Company <- as.character(Arrival_unload_dist$Company)# treat company as character so the company classes match for merging
+merge12 <- left_join(merge11,Arrival_unload_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Company", "Plant" )) ## merge together old and arrival to unload time 
+Total_time_on_truck_dist$Total_Time_on_Truck <- as.numeric(Total_time_on_truck_dist$Total_Time_on_Truck) # treat total time on truck as numeric 
+Total_time_on_truck_dist$Company <- as.character(Total_time_on_truck_dist$Company)# treat company as character so the company classes match for merging
+merge13 <- left_join(merge12,Total_time_on_truck_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Company", "Plant")) # treat total time on truck
+time_to_plant_dist$Company <- as.character(time_to_plant_dist$Company)# treat company as character so the company classes match for merging
+merge14 <- left_join(merge13,time_to_plant_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Arrival Date","Company", "Plant"))
+split_kill_dist$Company <- as.character(split_kill_dist$Company)# treat company as character so the company classes match for merging
+merge15 <- left_join(merge14,split_kill_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Kill Date","Company", "Plant")) ## merge together old and split kill
+onesmob_dist$Company <- as.character(onesmob_dist$Company)# treat company as character so the company classes match for merging
+merge16 <- left_join(merge15,onesmob_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Kill Date","Company", "Plant")) # merge together old and no limp
+twosmob_dist$Company <- as.character(twosmob_dist$Company) # treat company as character so company classes match for merging
+merge17 <- left_join(merge16,twosmob_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Kill Date","Company", "Plant")) ## merge together old and slight limp
+threesmob_dist$Company <- as.character(threesmob_dist$Company)# treat company as character so the company classes match for merging
+merge18 <- left_join(merge17,threesmob_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Kill Date","Company", "Plant")) # merge together old and limp
+foursmob_dist$Company <- as.character(foursmob_dist$Company)# treat company as character so the company classes match for merging
+merge19 <- left_join(merge18,foursmob_dist, all.x=TRUE, all.y=FALSE, by =c("Lot #","Kill Date","Company", "Plant")) # merge together old and no movement
+head_dist$Company <- as.character(head_dist$Company)# treat company as character so the company classes match for merging
+merge20 <- left_join(merge19, head_dist,all.x=TRUE, all.y=FALSE, by =c("Lot #","Kill Date","Company", "Plant")) # merge together old and head count 
+
+mergef <- rename(merge20, "Lot" = `Lot #`,"Pen_Density" = `Stocking Density (ft.² per head)`,"Hot_Weight" = `Avg. Hot Wt.`,"Splitkill" = `Split Kill`,"Yield" = `Dress Yield`,"No_Limp" = `#1s`,"Slight_Limp" = `#2s`,"Limp" = `#3s`,"No_movement" = `#4s`,"Live_Weight" = `Avg. Live Wt.`, "Arrival_Date" = `Arrival Date.x`, "Kill_Date" = `Kill Date`, "Lariage_Time" = Total_Time_Spent_in_Pens, "Head_Count" = `Total # Head`) ## rename the columns in the final merge data set
+write.csv(mergef, "finalized.csv") # save final merged sheet
+
+
+mergef
+```
+
+
+
+```{r}
+## number of NA's 
+#sum(is.na(merge21_breed$`Lot #`))
+#sum(is.na(merge21_breed$`Arrival Date`))
+#sum(is.na(merge21_breed$Plant))
+#sum(is.na(merge21_breed$Trip_Time_to_Plant))
+#sum(is.na(merge21_breed$`Company`))
+#sum(is.na(merge_final$Arrival_to_Unload_Time))
+#sum(is.na(merge21_breed$Total_Time_on_Truck))
+#sum(is.na(merge21_breed$`Kill Date`))
+#sum(is.na(merge21_breed$Total_Time_Spent_in_Pens))
+#sum(is.na(merge21_breed$`Total sq footage`))
+#sum(is.na(merge21_breed$Arrival_Temp))
+#sum(is.na(merge21_breed$Mobility_Temp))
+#sum(is.na(merge21_breed$Unloading_Temp))
+#sum(is.na(merge21_breed$Arrival_Humidity))
+#sum(is.na(merge21_breed$Mobility_Humidity))
+#sum(is.na(merge21_breed$Unloading_Humidity))
+#sum(is.na(merge21_breed$`Avg. Hot Wt.`))
+#sum(is.na(merge21_breed$`Split Kill`))
+#sum(is.na(merge21_breed$`Dress Yield`))
+#sum(is.na(merge21_breed$`#1s`))
+#sum(is.na(merge21_breed$`#2s`))
+#sum(is.na(merge21_breed$`#3s`))
+#sum(is.na(merge21_breed$`#4s`))
+#sum(is.na(merge21_breed$`Avg.Live Wt.`))
+
+
+## count the total number of missing data for each variable
+```
+
+
+
+```{r}
+## select for summary statistics 
+merge_final$Arrival_Temp <- as.numeric(merge_final$Arrival_Temp)
+merge_final$Unloading_Temp <- as.numeric(merge_final$Unloading_Temp)
+merge_final$Mobility_Temp <- as.numeric(merge_final$Mobility_Temp)
+organized_final_num <- merge_final %>% select(Lot, Plant, Company, Trip_Time_to_Plant, Arrival_to_Unload_Time, Total_Time_on_Truck, Lariage_Time, Total_sq_footage, Arrival_Temp, Mobility_Temp, Unloading_Temp, Arrival_Humidity, Mobility_Humidity, Unloading_Humidity, Hot_Weight, Splitkill, Yield, No_Limp, Slight_Limp, Limp, No_movement, Live_Weight, Breed) ## select certain columns and reorganize
+
+
+organized_final_num$Plant <- as.numeric(organized_final_num$Plant) ## treat plant as numeric
+organized_final_num$Arrival_Temp <- as.numeric(organized_final_num$Arrival_Temp) # treat arrival temp as numeric
+organized_final_num$Mobility_Temp <- as.numeric(organized_final_num$Mobility_Temp) ## treat mobility temp as numeric
+organized_final_num$Unloading_Temp <- as.numeric(organized_final_num$Unloading_Temp) ## treat unloading temp as numeric
+long_final_num <- organized_final_num %>% # pipe from our last sheet(organized_final)
+  pivot_longer(!Lot, names_to = "Variable", values_to = "values") # by lot number and label the column variables as variables to get the values of each
+sumstatsnum <- long_final_num %>%  # pipe for summary stats
+  group_by(Variable) %>% # group by the variable column
+  summarize(Total_values=sum(!is.na(values)), # count
+            Mean = mean(values, na.rm=TRUE), # mean of each variable
+            Standard_Deviation = sd(values, na.rm=TRUE), #standard deviation of each variable
+            Variance = var(values, na.rm=TRUE), # variance of each variable
+            Max = max(values, na.rm=TRUE), # max of each variable
+            Min = min(values, na.rm=TRUE),# min of each variable
+            Median = median(values, na.rm=TRUE), # median of each variable
+            First_quantile = quantile(values, 0.25, na.rm=TRUE), # first quartile of each variable
+            Third_quantile = quantile(values, 0.75, na.rm=TRUE) # third quartile of each variable
+  )
+sumstatsnum
+
+
+
+numericvariables <- merge_final %>%
+  select(Trip_Time_to_Plant, Arrival_to_Unload_Time, Total_Time_on_Truck, Lariage_Time, Total_sq_footage, Arrival_Temp, Unloading_Temp, Mobility_Temp, Arrival_Humidity, Unloading_Humidity, Mobility_Humidity, Hot_Weight, Live_Weight, Yield) ## select variables that are numerical for boxplots
+meltboxplots <- melt(numericvariables) # melt the variables
+meltboxplots
+boxplots_set <- ggplot(data=meltboxplots, aes(y=value)) + geom_boxplot(notch=TRUE) + facet_wrap(~variable, scales = "free")
+as.table(cor(numericvariables, use="pairwise.complete.obs"))
+
+
+
+
+
+histograms37 <- hist.data.frame(merge_final[3:7]) # histograms for 3-7 columns
+histograms927 <- hist.data.frame(merge_final[9:27]) # histograms for 9 to 27 columns
+
+
+
+
+
+sextable <- table(merge_final$Sex[merge_final$Sex!= "."]) #Get rid of values that are "." 
+sextable <- sextable[-1] # Get rid of 1st column that has NA values
+sextable <- sextable %>%
+  gt() %>%
+  tab_header(title = "Sex of Cows") # format the table to look better by using gt
+
+
+merge_final$Plant <- as.factor(merge_final$Plant) # treat plant as factor
+planttable <- table(merge_final$Plant) # make a table for plant
+planttable <- as.data.frame(planttable) # make into a data frame
+planttable <- planttable %>%
+  gt() %>%
+  tab_header(title = "Plant") %>%
+  cols_label(Var1 = "Plant") # format a nicer table
+
+merge_final$Company <- as.factor(merge_final$Company)# treat company as factor
+companytable <- table(merge_final$Company) # make a table for company
+companytable <- as.data.frame(companytable ) # make into a data frame
+companytable  <- companytable  %>%
+  gt() %>%
+  tab_header(title = "Company") %>%
+  cols_label(Var1 = "Company") # format into a nicer table
+
+killshifttable <- table(merge_final$`Kill Shift`)# treat Kill shift as factor
+killshifttable <- as.data.frame(killshifttable) # make into a data frame
+killshifttable <- killshifttable %>%
+  gt()%>%
+  tab_header(title ="Kill Shift")%>%
+  cols_label(Var1 = "Kill Shift") # make a nicer table
+killshifttable
+
+
+mobilityvars <- merge_final %>%
+  select(No_Limp, Slight_Limp, Limp, No_movement) # Select only the mobility scores
+mobilitysums <- colSums(mobilityvars, na.rm=TRUE)%>% enframe(name = "colname", value = "colSums(mobilityvars)") # calculate the column sums and keep the column names
+mobilitytable <- as.data.frame(mobilitysums) # make the column sums table into a data frame
+mobilitytable <- mobilitytable %>%
+  gt()%>%
+  tab_header(title = "Mobility Score")%>%
+  cols_label(colname = "Score", `colSums(mobilityvars)` = "Count") ## Format a better table for mobility scores
+  
+
+sumstatsnum <- as.data.frame(sumstatsnum)  ## make summary stats into data frame
+write.xlsx(sumstatsnum, "sum_stats_numeric.xlsx") ## save summary stats into document
+```
+
+
+
+```{r}
+## Modeling
+
+
+merge_final$Lot <- as.factor(merge_final$Lot) # treat lot as factor
+merge_final$Plant <- as.factor(merge_final$Plant) # treat plant as a factor
+merge_final$Company <- as.factor(merge_final$Company) # treat company as a factor
+merge_final$Arrival_Temp <- as.numeric(merge_final$Arrival_Temp) # treat Arrival temp as numeric
+merge_final$Mobility_Temp <- as.numeric(merge_final$Mobility_Temp)# treat Mobility temp as numeric
+merge_final$Unloading_Temp <- as.numeric(merge_final$Unloading_Temp)# treat Unloading temp as numeric
+merge_final$Splitkill <- as.factor(merge_final$Splitkill) # treat splitkill as factor 
+
+
+
+Hot_Weight_lm <- lm(Hot_Weight ~  Trip_Time_to_Plant  + Arrival_to_Unload_Time + Total_Time_on_Truck + Lariage_Time + Total_sq_footage + Arrival_Temp + Mobility_Temp + Unloading_Temp + Arrival_Humidity + Mobility_Humidity + Unloading_Humidity + Splitkill + No_Limp + Slight_Limp + Limp + No_movement + Sex + `Kill Shift`, data = merge_finaldf) # make a model for hot weight with numerous predictors
+
+
+options(na.action = "na.fail")
+AllSubsets <- dredge(Hot_Weight_lm, rank = "AIC", extra = c("R^2"))
+
+head(AllSubsets)
+
+
+```
+
+
+
+
+
+
+
+```{r show-code, ref.label = all_labels(), echo = TRUE, eval = FALSE}
+
+```
+

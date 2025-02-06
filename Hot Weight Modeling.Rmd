@@ -1,0 +1,249 @@
+---
+title: 'Modeling: Hot Weight'
+author: "Danielle Contreras"
+date: '2022-06-16'
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+install.packages("tidyverse")
+install.packages("dplyr")
+library(tidyverse)
+library(broom)
+library(car)
+library(MuMIn)
+library(lme4)
+library(gamm4)
+library(readxl)
+library(xlsx) 
+library(glmnet)
+library(reshape2)
+library(ggplot2)
+library(gt)
+library(Hmisc)
+library(kableExtra)
+install.packages('emmeans')
+library(emmeans)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 4, fig.height = 4, tidy = TRUE)
+```
+
+```{r}
+raw_data <- read.csv("C:\\Users\\danie\\OneDrive\\Summer Research\\finalized (1).csv")
+
+
+```
+
+```{r}
+modeling_data <- raw_data %>% ## read in the data set
+  mutate(Plant = as.factor(Plant))%>% # treat plant as factor
+  mutate(Kill_Shift = as.factor(Kill.Shift))%>% # treat kill shift as factor
+  mutate(Sex = as.factor(Sex)) ## treat sex as factor
+
+
+outlier_data <- subset(modeling_data, X == "123") # get the data for the outlier  
+
+#write.csv(outlier_data, "outlier_dataf.csv") # save the data for the outlier
+
+ 
+modeling_data_drop <- modeling_data %>%  # assign new name for data 
+  drop_na(Hot_Weight) %>% # drop NA for Hot Weight
+  drop_na(Arrival_to_Unload_Time) %>% #drop NA for Arrival_to_Unload_Time
+  drop_na(Arrival_Temp) %>%#drop NA for Arrival_Temp
+  drop_na(Arrival_Humidity) %>%#drop NA for Arrival_Humidity
+  drop_na(Pen_Density) %>%#drop NA for Pen_Density
+  drop_na(Plant) %>%#drop NA for Plant
+  drop_na(Kill.Shift) %>%#drop NA for Kill Shift
+  drop_na(Sex) # drop NA for Sex
+model_Dataf<-modeling_data_drop[!(modeling_data_drop$Sex=="." |modeling_data_drop$X=="123"),] # get rid of data with . for sex and the row number 123 that is the outlier.
+Hot_Weight_lmf <- lm(Hot_Weight ~ Arrival_to_Unload_Time + Arrival_Temp + Arrival_Humidity + Pen_Density + Plant + Kill_Shift + Sex, data=model_Dataf) ## make a linear model with 7 variables that don't have lots of missing data
+plot(Hot_Weight_lmf) # diagnostic plots for the model
+
+
+options(na.action = "na.fail") # make sure there are no NA values 
+AllSubsets <- dredge(Hot_Weight_lmf, rank = "AIC", extra = c("R^2")) ## dredge for AIC values for our model selection
+head(AllSubsets) ## head the AIC values to pick the best one
+AIClm <- lm(Hot_Weight ~ Arrival_Humidity + Arrival_Temp + Arrival_to_Unload_Time + Kill_Shift + Plant + Sex, data = model_Dataf) # make a model from the lowest AIC value 
+summary(AIClm) ## summary for AIC model 
+kable(anova(AIClm))
+
+modelb1 <- lm(Hot_Weight ~ Arrival_to_Unload_Time + Arrival_Temp + Arrival_Humidity + Pen_Density + Plant + Kill_Shift + Sex, data=model_Dataf) #make full  model of 7 variables
+anova(modelb1)
+modelb2 <- lm(Hot_Weight ~ Arrival_to_Unload_Time + Arrival_Temp  + Pen_Density + Plant + Kill_Shift + Sex, data=model_Dataf) #make full  model of 7 variables
+summary(AIClm)# summary of model
+anova(AIClm)# anova for model
+
+AICemmsex <- emmeans(AIClm, pairwise ~ Sex, type="response")# emmeans for Sex 
+kable(as.data.frame(AICemmsex$emmeans))# make a nicer table for the emmeans of sex
+AICemmks <- emmeans(AIClm, pairwise ~Kill_Shift) # emmeans for Kill shift
+kable(as.data.frame(AICemmks$emmeans))#make a nicer table for emmeans of kill shift
+AICemmpl <- emmeans(AIClm, pairwise ~Plant)# emmeans for Plant
+kable(as.data.frame(AICemmpl$emmeans))# make a nicer table for emmeans for Plant
+AICemm <- emmeans(AIClm, pairwise ~ Sex + Plant + Kill_Shift)# emmans of all categorical predictors
+
+```
+
+```{r}
+mergef <- modeling_data%>% # assign data to new name
+  mutate(Head_Count = as.numeric(Head_Count)) # treat head count as numeric
+
+organized_final_num <- mergef %>% ## assign data to new name list 
+  select(Lot,Lariage_Time, Pen_Density, Arrival_Temp, Mobility_Temp, Unloading_Temp, Arrival_Humidity, Mobility_Humidity, Unloading_Humidity, Hot_Weight, Yield, Live_Weight, Arrival_to_Unload_Time, Total_Time_on_Truck, Trip_Time_to_Plant, Head_Count,No_Limp, Slight_Limp, Limp, No_movement) # select these variables for our summary stats
+
+long_final_num <- organized_final_num %>% # pipe from our last sheet(organized_final)
+  pivot_longer(!Lot, names_to = "Variable", values_to = "values") # by lot number and label the column variables as variables to get the values of each
+sumstatsnum <- long_final_num %>%  # pipe for summary stats
+  group_by(Variable) %>% # group by the variable column
+  summarise(
+            Total_Values = sum(!is.na(values)),# count
+            Mean = mean(values, na.rm=TRUE), # mean of each variable
+            Standard_Deviation = sd(values, na.rm=TRUE), #standard deviation of each variable
+            Variance = var(values, na.rm=TRUE), # variance of each variable
+            Max = max(values, na.rm=TRUE), # max of each variable
+            Min = min(values, na.rm=TRUE),# min of each variable
+            Median = median(values, na.rm=TRUE), # median of each variable
+            First_quantile = quantile(values, 0.25, na.rm=TRUE), # first quartile of each variable
+            Third_quantile = quantile(values, 0.75, na.rm=TRUE) # third quartile of each variable
+  )
+sumstatsnum
+
+numericvariables <- mergef%>% # assign data to a new name 
+  select(Trip_Time_to_Plant, Arrival_to_Unload_Time, Total_Time_on_Truck, Lariage_Time, Pen_Density, Arrival_Temp, Unloading_Temp, Mobility_Temp, Arrival_Humidity, Unloading_Humidity, Mobility_Humidity, Hot_Weight, Live_Weight, Yield, No_Limp,Slight_Limp, Limp, No_movement, Head_Count) ## select variables that are numerical for boxplots
+meltboxplots <- melt(numericvariables) # melt the variables
+boxplots_set <- ggplot(data=meltboxplots, aes(y=value)) + geom_boxplot(notch=TRUE) + facet_wrap(~variable, scales = "free") ## make the grid of boxplots
+as.table(cor(numericvariables, use="pairwise.complete.obs")) # correlation between the numeric variables
+
+write.xlsx(sumstatsnum, "sum_stats.xlsx") # save excel file 
+
+
+
+
+
+
+
+planttable <- table(mergef$Plant) # make a table for plant
+planttable <- as.data.frame(planttable) # make into a data frame
+planttable <- planttable %>%
+  gt() %>%
+  tab_header(title = "Plant") %>%
+  cols_label(Var1 = "Plant") # format a nicer table
+planttable
+
+mergef$Company <- as.factor(mergef$Company)# treat company as factor
+companytable <- table(mergef$Company) # make a table for company
+companytable <- as.data.frame(companytable ) # make into a data frame
+companytable  <- companytable  %>%
+  gt() %>%
+  tab_header(title = "Company") %>%
+  cols_label(Var1 = "Company") # format into a nicer table
+companytable
+
+
+killshifttable <- table(mergef$Kill_Shift)# treat Kill shift as factor
+killshifttable <- as.data.frame(killshifttable) # make into a data frame
+killshifttable <- killshifttable %>%
+  gt()%>%
+  tab_header(title ="Kill Shift")%>%
+  cols_label(Var1 = "Kill Shift") # make a nicer table
+killshifttable
+#9, 10, 13, 21, 
+
+mobilityvars <- mergef %>%
+  select(No_Limp, Slight_Limp, Limp, No_movement) # Select only the mobility scores
+mobilitysums <- colSums(mobilityvars, na.rm=TRUE)%>% enframe(name = "colname", value = "colSums(mobilityvars)") # calculate the column sums and keep the column names
+mobilitytable <- as.data.frame(mobilitysums) # make the column sums table into a data frame
+mobilitytable <- mobilitytable %>%
+  gt()%>%
+  tab_header(title = "Mobility Score")%>%
+  cols_label(colname = "Score", `colSums(mobilityvars)` = "Count") ## Format a better table for mobility scores
+```
+
+```{r}
+finaldatacow$prop <- finaldatacow$Limp_detected/(finaldatacow$Limp_detected+finaldatacow$No_Limp)
+finaldatacow
+
+organized_final_num <- finaldatacow %>% ## assign data to new name list 
+  select(Lot,Pen_Density, Arrival_to_Unload_Time, Arrival_Temp, Arrival_Humidity, Mobility_Temp, Mobility_Humidity, Unloading_Humidity, Unloading_Temp, Total_Time_on_Truck, Trip_Time_to_Plant, Hot_Weight, Yield, Live_Weight, Num_Head, Limp_detected, No_Limp, prop) # select these variables for our summary stats
+
+long_final_num <- organized_final_num %>% # pipe from our last sheet(organized_final)
+  pivot_longer(!Lot, names_to = "Variable", values_to = "values") # by lot number and label the column variables as variables to get the values of each
+sumstatsnum0 <- long_final_num %>%  # pipe for summary stats
+  group_by(Variable) %>% # group by the variable column
+  summarise(
+            Total_Values = sum(!is.na(values)),# count
+            Mean = mean(values, na.rm=TRUE), # mean of each variable
+            Standard_Deviation = sd(values, na.rm=TRUE), #standard deviation of each variable
+            Variance = var(values, na.rm=TRUE), # variance of each variable
+            Max = max(values, na.rm=TRUE), # max of each variable
+            Min = min(values, na.rm=TRUE),# min of each variable
+            Median = median(values, na.rm=TRUE), # median of each variable
+            First_quantile = quantile(values, 0.25, na.rm=TRUE), # first quartile of each variable
+            Third_quantile = quantile(values, 0.75, na.rm=TRUE) # third quartile of each variable
+  )
+write.xlsx(sumstatsnum0, "Projectsummarystats.xlsx")# save summary stats in excel file
+finalcowdata0 <- finaldatacow%>%
+  drop_na(Plant)%>%
+  drop_na(Sex)%>%
+  drop_na(`Kill Shift`) # drop all NA for these variables
+
+
+
+planttable0 <- table(finalcowdata0$Plant) # make a table for plant
+planttable1 <- as.data.frame(planttable0) # make into a data frame
+planttable2 <- planttable1 %>%
+  gt() %>%
+  tab_header(title = "Plant") %>%
+  cols_label(Var1 = "Plant") # format a nicer table
+propplantt <- as.data.frame(prop.table(planttable0)) %>%
+  gt() %>%
+  tab_header(title = "Plant") %>%
+  cols_label(Var1 = "Plant", Freq="Percentages")# format into percentages/proportion table 
+  
+ggplot(finalcowdata0, aes(x=Plant))+
+  geom_bar(stat="count", width=0.7, fill="gray")+
+  ggtitle("Plant Barplot")## barplot plant
+
+sextable0 <- table(finalcowdata0$Sex) # make a table for plant
+Sextable1 <- as.data.frame(sextable0) # make into a data frame
+Sextable2 <- Sextable1 %>%
+  gt() %>%
+  tab_header(title = "Sex") %>%
+  cols_label(Var1 = "Sex") # format a nicer table
+
+propsext <- as.data.frame(prop.table(sextable0)) %>%
+  gt() %>%
+  tab_header(title = "Sex") %>%
+  cols_label(Var1 = "Sex", Freq="Percentages")  # format into a percentages/proportion table
+  
+ggplot(finalcowdata0, aes(x=Sex))+
+  geom_bar(stat="count", width=0.7, fill="gray")+
+  ggtitle("Sex Barplot") ## barplot Sex
+
+
+kstable0 <- table(finalcowdata0$`Kill Shift`) # make a table for plant
+kstable1 <- as.data.frame(kstable0) # make into a data frame
+kstable2 <- kstable1 %>%
+  gt() %>%
+  tab_header(title = "Kill Shift") %>%
+  cols_label(Var1 = "Kill Shift") # format a nicer table
+propkst <- as.data.frame(prop.table(kstable0)) %>%
+  gt() %>%
+  tab_header(title = "Kill Shift") %>%
+  cols_label(Var1 = "Kill Shift", Freq="Percentages") # format into percentages/proportion table 
+  
+ggplot(finalcowdata0, aes(x=`Kill Shift`))+
+  geom_bar(stat="count", width=0.7, fill="gray")+
+  ggtitle("Kill Shift Barplot")# barplot Kill shift
+
+## rows that humidity needs fixed 88,93-94, 97-98, 122-129,  149-151, 163-165, 185-190, 192-194, 196-197, 199-203, 205,208-214, 216-217, 219-230, 234-235, 239-240,242, 244
+
+
+
+```
+
+\`\`\`{{r show-code, ref.label = all_labels(), echo = TRUE, eval = FALSE}}
+
+\`\`\`

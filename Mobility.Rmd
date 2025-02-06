@@ -1,0 +1,223 @@
+---
+title: "Mobility"
+author: "Danielle Contreras"
+output: html_document
+date: '2022-06-22'
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+install.packages("tidyverse")
+library(broom)
+library(tidyverse)
+library(reshape2)
+library(readr)
+library(gamm4)
+library(broom)
+library(readxl)
+library(plyr); library(dplyr)
+library(car)
+library(ggplot2)
+library(MuMIn)
+library(glmnet)
+library(emmeans)
+library(xlsx)
+library(Hmisc)
+library(gt)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 4, fig.height = 4, tidy = TRUE)
+```
+
+
+
+```{r}
+Mobility <- read_excel("C:\\Users\\danie\\OneDrive\\Summer Research\\Important Files\\Entered Data.xlsx", 
+                       sheet = "Mobility") ## read in mobility for seperate sheet
+```
+
+
+```{r}
+Mobility$`D/D` <- as.numeric(Mobility$`D/D`) ## read D/D as numeric
+DD_dist <- Mobility%>%
+  group_by(`Lot #`, `Kill Date`, `Plant`, `Company`)%>%
+  summarise(across(`D/D`, na.rm = TRUE, .fns = sum), .groups = "drop" 
+    ) ## reduce DD to lot level by combining from these 4 variables
+DD <- rename(DD_dist, "Lot" = `Lot #`, "Kill_Date" = `Kill Date`) ## rename columns 
+Mobility$`Total # in Lot` <- as.numeric(Mobility$`Total # in Lot`) ## treat total # in lot as numeric
+cowtot <- Mobility%>% 
+  group_by(`Lot #`, `Kill Date`, `Plant`, `Company` )%>%
+  summarise(across(`Total # in Lot`, na.rm = TRUE, .fns = sum), .groups = "drop" 
+    ) ## reduce number of cattle to lot level by combining from these 4 variables
+
+mergedd <- left_join(finalized,DD, all.x=TRUE, all.y=FALSE, by =c("Lot","Kill_Date","Company", "Plant")) ## merge together data det and dd
+
+cows <- rename(cowtot, "Lot" = `Lot #`, "Kill_Date" = `Kill Date`) ## rename columns 
+mergect <- left_join(mergedd, cows,all.x=TRUE, all.y=FALSE, by =c("Lot","Kill_Date","Company", "Plant"))  ## merge old and number of cows
+
+df = subset(mergect, select = -c(Limp, Slight_Limp, No_movement, `D/D`, Head_Count)) ## delete columns not needed
+alldata <- rename(df, "Limp_detected" = col25, "Num_Head" = `Total # in Lot`) ## rename columns 
+alldata
+write.xlsx(alldata, "data.xlsx") ## save final data
+```
+
+
+```{r}
+
+
+alldata$Plant <- as.factor(alldata$Plant) ## treat plant as factor
+Mobilitymodel <- glm(cbind(Limp_detected, No_Limp) ~ Arrival_to_Unload_Time + Arrival_Temp + Arrival_Humidity + Pen_Density + Plant + `Kill Shift` + Sex, family = binomial(logit), data = Mobilitymodel_drop)
+sum_mobm <- summary(Mobilitymodel)## make logistic model 
+
+Mobilitymodel_drop <- alldata%>% # pipe all data
+  drop_na(Arrival_to_Unload_Time)%>%## drop na values 
+  drop_na(No_Limp)%>%## drop na values 
+  drop_na(Limp_detected)%>%## drop na values 
+  drop_na(Arrival_Temp)%>%## drop na values 
+  drop_na(Arrival_Humidity)%>%## drop na values 
+  drop_na(Pen_Density)%>%## drop na values 
+  drop_na(Plant)%>%## drop na values 
+  drop_na(`Kill Shift`)%>%## drop na values 
+  drop_na(Sex) ## drop na values 
+options(na.action = "na.fail") # make sure there are no NA values 
+AllSubsets <- dredge(Mobilitymodel, rank = "AIC", extra = c("R^2")) ## dredge for AIC values for our model selection
+head(AllSubsets)
+Anova(Mobilitymodel)
+summary(Mobilitymodel) ## print anova 
+exp(Mobilitymodel$coef) # print coeffieciets
+exp(confint(Mobilitymodel)) # print CI's
+emmeans(Mobilitymodel, pairwise ~ Sex + Plant + `Kill Shift`, type="response") ## emmeans for all variables
+mobsexem<- emmeans(Mobilitymodel, pairwise ~ Sex, type="response") # emmeans for only sex
+kable(as.data.frame(mobsexem$emmeans))#make a nicer table for the emmeans for sex
+mobplem <- emmeans(Mobilitymodel, pairwise ~ Plant, type="response")## emmeans for Plant only
+kable(as.data.frame(mobplem$emmeans)) #make a nicer table for the emmeans for Plant
+mobksem <- emmeans(Mobilitymodel, pairwise ~ `Kill Shift`, type="response")# emmeans for Kill shift only
+kable(as.data.frame(mobksem$emmeans))#make a nicer table for emmeans for kill shift
+
+alldata$prop <- alldata$Limp_detected/(alldata$Limp_detected+alldata$No_Limp) ## create proportion of animals that had a limp
+sum(alldata$Limp_detected, na.rm=TRUE) + sum(alldata$No_Limp, na.rm=TRUE) ## sum of all animals measures 
+
+
+ggplot(alldata, aes(x=Arrival_to_Unload_Time, y=prop)) +
+  geom_point()+
+  geom_jitter(width = 10, height=0.05) + 
+  xlab("Arrive to Unload Time") + 
+  ylab("Limp") +
+  geom_smooth(method = "glm",
+              method.args=list(family = "binomial"),
+              se = FALSE) ## logistic regression plot for Arrival to unload time for practice purposes
+
+summary(Mobilitymodel)## print summary for Model
+
+
+```
+
+
+
+```{r}
+organized_final_num <- alldata %>% 
+  select(Lot,Lariage_Time, Pen_Density, Arrival_Temp, Arrival_Humidity, Unloading_Temp, Unloading_Humidity, Mobility_Temp, Mobility_Humidity, Hot_Weight, Yield, Live_Weight, Arrival_to_Unload_Time, Total_Time_on_Truck, Trip_Time_to_Plant, Num_Head, prop, No_Limp, Limp_detected) ## select these numeric variables from data
+
+long_final_num <- organized_final_num %>% # pipe from our last sheet(organized_final)
+  pivot_longer(!Lot, names_to = "Variable", values_to = "values") # by lot number and label the column variables as variables to get the values of each
+sumstatsnum <- long_final_num %>%  # pipe for summary stats
+  group_by(Variable) %>% # group by the variable column
+  summarise(
+            Total_Values = sum(!is.na(values)),# count
+            Mean = mean(values, na.rm=TRUE), # mean of each variable
+            Standard_Deviation = sd(values, na.rm=TRUE), #standard deviation of each variable
+            Variance = var(values, na.rm=TRUE), # variance of each variable
+            Max = max(values, na.rm=TRUE), # max of each variable
+            Min = min(values, na.rm=TRUE),# min of each variable
+            Median = median(values, na.rm=TRUE), # median of each variable
+            First_quantile = quantile(values, 0.25, na.rm=TRUE), # first quartile of each variable
+            Third_quantile = quantile(values, 0.75, na.rm=TRUE) # third quartile of each variable
+  )
+
+
+alldata_drop <- alldata%>%
+  drop_na(Lot)%>%
+  drop_na(Arrival_Date)%>%
+  drop_na(Kill_Date)%>%
+  drop_na(Company)%>%
+  drop_na(Plant)%>%
+  drop_na(Lariage_Time)%>%
+  drop_na(Pen_Density)%>%
+  drop_na(Arrival_Temp)%>%
+  drop_na(Mobility_Temp)%>%
+  drop_na(Unloading_Temp)%>%
+  drop_na(Arrival_Humidity)%>%
+  drop_na(Mobility_Humidity)%>%
+  drop_na(Unloading_Humidity)%>%
+  drop_na(Hot_Weight)%>%
+  drop_na(Yield)%>%
+  drop_na(Live_Weight)%>%
+  drop_na(Sex)%>%
+  drop_na(`Kill Shift`)%>%
+  drop_na(Arrival_to_Unload_Time)%>%
+  drop_na(Total_Time_on_Truck)%>%
+  drop_na(Trip_Time_to_Plant)%>%
+  drop_na(Splitkill)%>%
+  drop_na(No_Limp)%>%
+  drop_na(`Arrival Date.y`)%>%
+  drop_na(No_Limp)%>%
+  drop_na(`Arrival Date.y`)%>%
+  drop_na(Limp_detected)%>%
+  drop_na(Num_Head)%>%
+  drop_na(prop) ## drop all NA values for each variable
+  
+
+```
+
+
+```{r}
+numericvariables <- finalized%>% # assign data to a new name 
+  select(Arrival_to_Unload_Time,  Pen_Density, Arrival_Temp, Arrival_Humidity, Hot_Weight) ## select variables that are numerical for boxplots
+meltboxplots <- melt(numericvariables) # melt the variables
+boxplots_set <- ggplot(data=meltboxplots, aes(y=value)) + geom_boxplot(notch=TRUE) + facet_wrap(~variable, scales = "free") ## creat set of boxplots
+histograms_8_9 <- hist.data.frame(finalized[8:9])# histograms for columns 8 and 9
+histograms_15 <- hist.data.frame(alldata[15])# histogram for column 15
+histograms12 <- hist.data.frame(finalized[12])# histogram for column 12
+histograms20 <- hist.data.frame(finalized[20])#histogram for column 20
+
+mob_prop <- alldata%>%
+  select(prop, hotweight) # select these 2 variables 
+boxplot(alldata$prop, main="Proportion of Limp per Lot", ylab="Proprortions")# make boxplot for Proportion of limps
+histogramprop<- histogram(alldata$prop, main="Histogram for Proportions of Limp", xlab="Proportion", color=rgb(1,0,1)) # make detailed histogram for Proportion
+```
+
+```{r}
+`#No Limp` <- sum(alldata$No_Limp, na.rm=TRUE)#sum of no limp
+`#Limp` <- sum(alldata$Limp_detected, na.rm=TRUE)# sum of limo
+num_only <- alldata%>%
+  select(Lariage_Time, Pen_Density, Arrival_Temp, Arrival_Humidity, Unloading_Temp, Unloading_Humidity, Mobility_Temp, Mobility_Humidity, Hot_Weight, Yield, Live_Weight, Arrival_to_Unload_Time, Total_Time_on_Truck, Trip_Time_to_Plant, Num_Head, prop, No_Limp, Limp_detected)
+cor(num_only, use = "pairwise.complete.obs")
+total_count <- `#No Limp` + `#Limp` # total counted alltogehter
+mob_table <- matrix(c(`#No Limp`, `#Limp`), ncol=2) # make table from scratch
+colnames(mob_table) <- c('No Limp', 'Limp')# label column names
+mob_table <- as.table(mob_table) # re-assign table 
+barplot(mob_table, color=grey,
+        xlab = "Limp or No Limp" , ylab = "Frequency" , main = "Mobility Distribution") ## make barplot for Limp and no Limp
+mobtable1 <- as.data.frame(mob_table) # make into a data frame
+mobtable2 <- mobtable1 %>%
+  gt() %>%
+  tab_header(title = "Limp vs.No Limp") %>%
+  cols_label(Var1 = "..")%>%
+  cols_label(Var2 = "Mobility")# format a nicer table
+propmob <- as.data.frame(prop.table(mob_table)) %>%
+  gt() %>%
+  tab_header(title = "Mobility") %>%
+  cols_label(Var1 = "..", Var2="Mobility", Freq="Percentages") 
+ # format a percentages table
+  
+```
+
+
+
+
+
+
+
+
+```{r show-code, ref.label = all_labels(), echo = TRUE, eval = FALSE}
+
+```
+
